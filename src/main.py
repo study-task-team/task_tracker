@@ -150,6 +150,15 @@ def create_task(
     if not course:
         raise HTTPException(status_code=404, detail="Курс не найден")
 
+    if not title.strip():
+        return templates.TemplateResponse(
+            request=request,
+            name="course_detail.html",
+            context={"title": course.title, "course": course, "error": "Название задания обязательно",
+                     "role": "teacher"},
+            status_code=400,
+        )
+
     parsed_deadline = None
     if deadline:
         try:

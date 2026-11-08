@@ -9,6 +9,10 @@
 
 <h2 class="mb-4">{{ course.title }}</h2>
 
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
 <!-- Форма добавления задания видна только преподавателю -->
 {% if role == 'teacher' %}
 <div class="card mb-4 bg-light">
