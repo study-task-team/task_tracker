@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb mt-2">
+    <li class="breadcrumb-item"><a href="/courses">Курсы</a></li>
+    <li class="breadcrumb-item active">{{ course.title }}</li>
+  </ol>
+</nav>
+
+<h2 class="mb-4">{{ course.title }}</h2>
+
+<!-- Форма добавления задания видна только преподавателю -->
+{% if role == 'teacher' %}
+<div class="card mb-4 bg-light">
+    <div class="card-body">
+        <h5 class="card-title">Добавить задание</h5>
+        <form method="post" action="/courses/{{ course.id }}/tasks" class="row g-2">
+            <div class="col-md-5">
+                <input type="text" class="form-control" name="title" placeholder="Название задания" required>
+            </div>
+            <div class="col-md-4">
+                <input type="datetime-local" class="form-control" name="deadline">
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary w-100">Добавить</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <ul class="list-group list-group-flush">
+        {% for task in course.tasks %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+                <h6 class="mb-1">{{ task.title }}</h6>
+                <small class="text-muted">
+                    {% if task.deadline %}До: {{ task.deadline.strftime("%d.%m.%Y %H:%M") }}{% else %}Без дедлайна{% endif %}
+                </small>
+            </div>
+            
+            <!-- Если вошел студент — показываем выпадающий список статусов -->
+            {% if role == 'student' %}
+            <form method="post" action="/tasks/{{ task.id }}/status">
+                <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="todo" {% if task.status == 'todo' %}selected{% endif %}>К выполнению</option>
+                    <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>В работе</option>
+                    <option value="done" {% if task.status == 'done' %}selected{% endif %}>Сдано</option>
+                </select>
+            </form>
+            {% else %}
+            <!-- Если препод — просто показываем текущий статус -->
+            <span class="badge bg-secondary">{{ task.status }}</span>
+            {% endif %}
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">В этом курсе пока нет заданий.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

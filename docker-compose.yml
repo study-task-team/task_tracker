@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    container_name: study-tracker-app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
