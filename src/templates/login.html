@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 text-center">
+        <h1 class="mb-4">Кто вы?</h1>
+        <p class="text-muted mb-5">Выберите свою роль для входа в систему</p>
+        
+        <div class="d-grid gap-3">
+            <form method="post" action="/login">
+                <input type="hidden" name="role" value="student">
+                <button type="submit" class="btn btn-success btn-lg w-100 py-3">
+                    <i class="bi bi-mortarboard fs-3 d-block mb-2"></i>
+                    Я Студент
+                </button>
+            </form>
+            
+            <form method="post" action="/login">
+                <input type="hidden" name="role" value="teacher">
+                <button type="submit" class="btn btn-warning btn-lg w-100 py-3">
+                    <i class="bi bi-person-video3 fs-3 d-block mb-2"></i>
+                    Я Преподаватель
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
