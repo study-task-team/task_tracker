@@ -7,4 +7,4 @@ services:
     dockerfilePath: ./Dockerfile
     envVars:
       - key: DATABASE_URL
-        value: sqlite:////data/study_tracker.db
+        value: sqlite:////app/study_tracker.db
