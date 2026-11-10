@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: study-task-tracker
+    env: docker
+    region: frankfurt
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:////app/study_tracker.db
