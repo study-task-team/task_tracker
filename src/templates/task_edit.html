@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mt-2">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/courses">Курсы</a></li>
+    <li class="breadcrumb-item"><a href="/courses/{{ task.course.id }}">{{ task.course.title }}</a></li>
+    <li class="breadcrumb-item active">Редактирование</li>
+  </ol>
+</nav>
+
+<h2 class="mb-4">Редактировать задание</h2>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<div class="card col-md-8 mx-auto">
+    <div class="card-body p-4">
+        <form method="post" action="/tasks/{{ task.id }}/edit">
+            <div class="mb-3">
+                <label class="form-label fw-bold">Название</label>
+                <input type="text" class="form-control" name="title" value="{{ task.title }}" required maxlength="200">
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-bold">Дедлайн</label>
+                <input type="datetime-local" class="form-control" name="deadline"
+                       value="{{ task.deadline.strftime('%Y-%m-%dT%H:%M') if task.deadline else '' }}">
+            </div>
+            <div class="d-flex justify-content-between">
+                <a href="/courses/{{ task.course.id }}" class="btn btn-outline-secondary">Отмена</a>
+                <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
