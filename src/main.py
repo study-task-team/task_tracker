@@ -106,12 +106,28 @@ def course_detail(request: Request, course_id: int, db: Session = Depends(get_db
     if not course:
         raise HTTPException(status_code=404, detail="Курс не найден")
 
+    # Считаем статистику (US-6)
+    total_tasks = len(course.tasks)
+    done_tasks = sum(1 for t in course.tasks if t.status == "done")
+    in_progress_tasks = sum(1 for t in course.tasks if t.status == "in_progress")
+    todo_tasks = sum(1 for t in course.tasks if t.status == "todo")
+
     return templates.TemplateResponse(
         request=request,
         name="course_detail.html",
-        context={"title": course.title, "course": course, "error": None, "role": role},
+        context={
+            "title": course.title,
+            "course": course,
+            "error": None,
+            "role": role,
+            "stats": {
+                "total": total_tasks,
+                "done": done_tasks,
+                "in_progress": in_progress_tasks,
+                "todo": todo_tasks,
+            }
+        },
     )
-
 
 # --- МАРШРУТЫ ТОЛЬКО ДЛЯ ПРЕПОДАВАТЕЛЯ ---
 
@@ -151,11 +167,26 @@ def create_task(
         raise HTTPException(status_code=404, detail="Курс не найден")
 
     if not title.strip():
+        # Считаем статистику (US-6)
+        done_tasks = sum(1 for t in course.tasks if t.status == "done")
+        in_progress_tasks = sum(1 for t in course.tasks if t.status == "in_progress")
+        todo_tasks = sum(1 for t in course.tasks if t.status == "todo")
+
         return templates.TemplateResponse(
             request=request,
             name="course_detail.html",
-            context={"title": course.title, "course": course, "error": "Название задания обязательно",
-                     "role": "teacher"},
+            context={
+                "title": course.title,
+                "course": course,
+                "error": "Название задания обязательно",
+                "role": "teacher",
+                "stats": {
+                    "total": len(course.tasks),
+                    "done": done_tasks,
+                    "in_progress": in_progress_tasks,
+                    "todo": todo_tasks,
+                }
+            },
             status_code=400,
         )
 
