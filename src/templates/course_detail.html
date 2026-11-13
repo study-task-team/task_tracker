@@ -7,7 +7,15 @@
   </ol>
 </nav>
 
-<h2 class="mb-4">{{ course.title }}</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">{{ course.title }}</h2>
+    {% if role == 'teacher' %}
+    <form method="post" action="/courses/{{ course.id }}/delete" onsubmit="return confirm('Удалить курс и все задания?');">
+        <button type="submit" class="btn btn-outline-danger btn-sm">Удалить курс</button>
+    </form>
+    {% endif %}
+</div>
+
 
 {% if error %}
 <div class="alert alert-danger">{{ error }}</div>

@@ -248,3 +248,21 @@ def update_task_status(
     task.status = status
     db.commit()
     return RedirectResponse(url=f"/courses/{task.course_id}", status_code=303)
+
+@app.post("/courses/{course_id}/delete")
+def delete_course(
+    request: Request,
+    course_id: int,
+    db: Session = Depends(get_db)
+):
+    """Удаление курса (только для преподавателя)."""
+    if get_current_role(request) != "teacher":
+        raise HTTPException(status_code=403, detail="Только преподаватель может удалять курсы")
+
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Курс не найден")
+
+    db.delete(course)
+    db.commit()
+    return RedirectResponse(url="/courses", status_code=303)
