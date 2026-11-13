@@ -192,3 +192,31 @@ def test_edit_task_404(client):
     client.post("/login", data={"role": "teacher"})
     response = client.get("/tasks/999/edit")
     assert response.status_code == 404
+
+
+def test_course_filtering(client):
+    """Проверка фильтрации задач по статусу."""
+    # Создаем курс и задачи от лица препода
+    client.post("/login", data={"role": "teacher"})
+    client.post("/courses", data={"title": "Фильтрация"})
+    client.post("/courses/1/tasks", data={"title": "Задача 1"})
+    client.post("/courses/1/tasks", data={"title": "Задача 2"})
+
+    # Студент ставит статус "done" для первой задачи
+    client.get("/logout")
+    client.post("/login", data={"role": "student"})
+    client.post("/tasks/1/status", data={"status": "done"})
+    client.get("/logout")
+
+    # Заходим как препод и проверяем фильтр
+    client.post("/login", data={"role": "teacher"})
+
+    # Без фильтра видны обе задачи
+    response_all = client.get("/courses/1")
+    assert "Задача 1" in response_all.text
+    assert "Задача 2" in response_all.text
+
+    # С фильтром done видна только первая
+    response_done = client.get("/courses/1?status=done")
+    assert "Задача 1" in response_done.text
+    assert "Задача 2" not in response_done.text
