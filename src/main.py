@@ -97,7 +97,12 @@ def list_courses(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/courses/{course_id}", response_class=HTMLResponse)
-def course_detail(request: Request, course_id: int, db: Session = Depends(get_db)):
+def course_detail(
+    request: Request,
+    course_id: int,
+    status: str = None,
+    db: Session = Depends(get_db)
+):
     role = get_current_role(request)
     if role == "guest":
         return RedirectResponse(url="/", status_code=303)
@@ -106,10 +111,34 @@ def course_detail(request: Request, course_id: int, db: Session = Depends(get_db
     if not course:
         raise HTTPException(status_code=404, detail="Курс не найден")
 
+    # Фильтрация (US-14)
+    tasks = course.tasks
+    if status in ["todo", "in_progress", "done"]:
+        tasks = [t for t in tasks if t.status == status]
+
+    # Считаем статистику (US-6)
+    total_tasks = len(course.tasks)
+    done_tasks = sum(1 for t in course.tasks if t.status == "done")
+    in_progress_tasks = sum(1 for t in course.tasks if t.status == "in_progress")
+    todo_tasks = sum(1 for t in course.tasks if t.status == "todo")
+
     return templates.TemplateResponse(
         request=request,
         name="course_detail.html",
-        context={"title": course.title, "course": course, "error": None, "role": role},
+        context={
+            "title": course.title,
+            "course": course,
+            "tasks": tasks,
+            "error": None,
+            "role": role,
+            "current_filter": status,
+            "stats": {
+                "total": total_tasks,
+                "done": done_tasks,
+                "in_progress": in_progress_tasks,
+                "todo": todo_tasks,
+            }
+        },
     )
 
 
@@ -205,11 +234,27 @@ def create_task(
         raise HTTPException(status_code=404, detail="Курс не найден")
 
     if not title.strip():
+        done_tasks = sum(1 for t in course.tasks if t.status == "done")
+        in_progress_tasks = sum(1 for t in course.tasks if t.status == "in_progress")
+        todo_tasks = sum(1 for t in course.tasks if t.status == "todo")
+
         return templates.TemplateResponse(
             request=request,
             name="course_detail.html",
-            context={"title": course.title, "course": course, "error": "Название задания обязательно",
-                     "role": "teacher"},
+            context={
+                "title": course.title,
+                "course": course,
+                "tasks": course.tasks,
+                "error": "Название задания обязательно",
+                "role": "teacher",
+                "current_filter": None,
+                "stats": {
+                    "total": len(course.tasks),
+                    "done": done_tasks,
+                    "in_progress": in_progress_tasks,
+                    "todo": todo_tasks,
+                }
+            },
             status_code=400,
         )
 
