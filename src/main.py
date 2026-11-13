@@ -115,6 +115,60 @@ def course_detail(request: Request, course_id: int, db: Session = Depends(get_db
 
 # --- МАРШРУТЫ ТОЛЬКО ДЛЯ ПРЕПОДАВАТЕЛЯ ---
 
+@app.get("/tasks/{task_id}/edit", response_class=HTMLResponse)
+def edit_task_page(request: Request, task_id: int, db: Session = Depends(get_db)):
+    """Страница редактирования задания (только для преподавателя)."""
+    if get_current_role(request) != "teacher":
+        raise HTTPException(status_code=403, detail="Только преподаватель может редактировать задания")
+
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Задание не найдено")
+
+    return templates.TemplateResponse(
+        request=request,
+        name="task_edit.html",
+        context={"title": "Редактирование", "task": task, "error": None},
+    )
+
+
+@app.post("/tasks/{task_id}/edit")
+def edit_task(
+        request: Request,
+        task_id: int,
+        title: str = Form(...),
+        deadline: str = Form(None),
+        db: Session = Depends(get_db),
+):
+    """Сохранение изменений в задании."""
+    if get_current_role(request) != "teacher":
+        raise HTTPException(status_code=403, detail="Только преподаватель может редактировать задания")
+
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Задание не найдено")
+
+    if not title.strip():
+        return templates.TemplateResponse(
+            request=request,
+            name="task_edit.html",
+            context={"title": "Редактирование", "task": task, "error": "Название обязательно"},
+            status_code=400,
+        )
+
+    parsed_deadline = None
+    if deadline:
+        try:
+            parsed_deadline = datetime.strptime(deadline, "%Y-%m-%dT%H:%M")
+        except ValueError:
+            pass
+
+    task.title = title.strip()
+    task.deadline = parsed_deadline
+    db.commit()
+
+    return RedirectResponse(url=f"/courses/{task.course_id}", status_code=303)
+
 @app.post("/courses")
 def create_course(request: Request, title: str = Form(...), db: Session = Depends(get_db)):
     if get_current_role(request) != "teacher":
