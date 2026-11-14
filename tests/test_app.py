@@ -220,6 +220,33 @@ def test_edit_task_404(client):
     assert response.status_code == 404
 
 
+def test_delete_course(client):
+    """Проверка удаления курса преподавателем."""
+    client.post("/login", data={"role": "teacher"})
+    client.post("/courses", data={"title": "Удаляемый курс"})
+
+    # Проверяем, что курс есть
+    response = client.get("/courses")
+    assert "Удаляемый курс" in response.text
+
+    # Удаляем
+    response = client.post("/courses/1/delete", follow_redirects=False)
+    assert response.status_code == 303
+
+    # Проверяем, что курса больше нет
+    response = client.get("/courses")
+    assert "Удаляемый курс" not in response.text
+
+
+def test_delete_course_403_for_student(client):
+    """Студент не может удалять курсы."""
+    client.post("/login", data={"role": "teacher"})
+    client.post("/courses", data={"title": "Защищенный курс"})
+    client.get("/logout")
+
+    client.post("/login", data={"role": "student"})
+    response = client.post("/courses/1/delete")
+    assert response.status_code == 403
 def test_course_filtering(client):
     """Проверка фильтрации задач по статусу."""
     # Создаем курс и задачи от лица препода
