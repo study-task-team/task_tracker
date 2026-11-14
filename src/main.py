@@ -17,7 +17,6 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Трекер учебных задач")
 
-# Секретный ключ для подписи cookie (сессий)
 app.add_middleware(SessionMiddleware, secret_key="super-secret-key-for-lab")
 
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
@@ -25,7 +24,6 @@ templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 
 def get_current_role(request: Request) -> str:
-    """Возвращает роль текущего пользователя из сессии."""
     return request.session.get("role", "guest")
 
 
@@ -36,7 +34,6 @@ def health() -> dict[str, str]:
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request, db: Session = Depends(get_db)):
-    """Главная страница. Если гость — показываем выбор роли. Если студент — дедлайны."""
     role = get_current_role(request)
 
     if role == "guest":
@@ -47,7 +44,6 @@ def index(request: Request, db: Session = Depends(get_db)):
     if role == "teacher":
         return RedirectResponse(url="/courses", status_code=303)
 
-    # Роль "student"
     now = datetime.utcnow()
     week_later = now + timedelta(days=7)
     upcoming_tasks = (
@@ -65,22 +61,17 @@ def index(request: Request, db: Session = Depends(get_db)):
 
 @app.post("/login")
 def login(request: Request, role: str = Form(...)):
-    """Обработка выбора роли."""
     if role not in ["teacher", "student"]:
         raise HTTPException(status_code=400, detail="Неверная роль")
-
     request.session["role"] = role
     return RedirectResponse(url="/", status_code=303)
 
 
 @app.get("/logout")
 def logout(request: Request):
-    """Выход (очистка сессии)."""
     request.session.clear()
     return RedirectResponse(url="/", status_code=303)
 
-
-# --- МАРШРУТЫ ДЛЯ КУРСОВ (ДОСТУПНЫ ОБЕИМ РОЛЯМ) ---
 
 @app.get("/courses", response_class=HTMLResponse)
 def list_courses(request: Request, db: Session = Depends(get_db)):
@@ -97,7 +88,9 @@ def list_courses(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/courses/{course_id}", response_class=HTMLResponse)
-def course_detail(request: Request, course_id: int, db: Session = Depends(get_db)):
+def course_detail(
+    request: Request, course_id: int, status: str = None, db: Session = Depends(get_db)
+):
     role = get_current_role(request)
     if role == "guest":
         return RedirectResponse(url="/", status_code=303)
@@ -106,20 +99,39 @@ def course_detail(request: Request, course_id: int, db: Session = Depends(get_db
     if not course:
         raise HTTPException(status_code=404, detail="Курс не найден")
 
+    tasks = course.tasks
+    if status in ["todo", "in_progress", "done"]:
+        tasks = [t for t in tasks if t.status == status]
+
+    total_tasks = len(course.tasks)
+    done_tasks = sum(1 for t in course.tasks if t.status == "done")
+    in_progress_tasks = sum(1 for t in course.tasks if t.status == "in_progress")
+    todo_tasks = sum(1 for t in course.tasks if t.status == "todo")
+
     return templates.TemplateResponse(
         request=request,
         name="course_detail.html",
-        context={"title": course.title, "course": course, "error": None, "role": role},
+        context={
+            "title": course.title,
+            "course": course,
+            "tasks": tasks,
+            "error": None,
+            "role": role,
+            "current_filter": status,
+            "stats": {
+                "total": total_tasks,
+                "done": done_tasks,
+                "in_progress": in_progress_tasks,
+                "todo": todo_tasks,
+            }
+        },
     )
 
 
-# --- МАРШРУТЫ ТОЛЬКО ДЛЯ ПРЕПОДАВАТЕЛЯ ---
-
 @app.get("/tasks/{task_id}/edit", response_class=HTMLResponse)
 def edit_task_page(request: Request, task_id: int, db: Session = Depends(get_db)):
-    """Страница редактирования задания (только для преподавателя)."""
     if get_current_role(request) != "teacher":
-        raise HTTPException(status_code=403, detail="Только преподаватель может редактировать задания")
+        raise HTTPException(status_code=403, detail="Только преподаватель")
 
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
@@ -134,15 +146,14 @@ def edit_task_page(request: Request, task_id: int, db: Session = Depends(get_db)
 
 @app.post("/tasks/{task_id}/edit")
 def edit_task(
-        request: Request,
-        task_id: int,
-        title: str = Form(...),
-        deadline: str = Form(None),
-        db: Session = Depends(get_db),
+    request: Request,
+    task_id: int,
+    title: str = Form(...),
+    deadline: str = Form(None),
+    db: Session = Depends(get_db),
 ):
-    """Сохранение изменений в задании."""
     if get_current_role(request) != "teacher":
-        raise HTTPException(status_code=403, detail="Только преподаватель может редактировать задания")
+        raise HTTPException(status_code=403, detail="Только преподаватель")
 
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
@@ -166,8 +177,8 @@ def edit_task(
     task.title = title.strip()
     task.deadline = parsed_deadline
     db.commit()
-
     return RedirectResponse(url=f"/courses/{task.course_id}", status_code=303)
+
 
 @app.post("/courses")
 def create_course(request: Request, title: str = Form(...), db: Session = Depends(get_db)):
@@ -191,11 +202,11 @@ def create_course(request: Request, title: str = Form(...), db: Session = Depend
 
 @app.post("/courses/{course_id}/tasks")
 def create_task(
-        request: Request,
-        course_id: int,
-        title: str = Form(...),
-        deadline: str = Form(None),
-        db: Session = Depends(get_db),
+    request: Request,
+    course_id: int,
+    title: str = Form(...),
+    deadline: str = Form(None),
+    db: Session = Depends(get_db),
 ):
     if get_current_role(request) != "teacher":
         raise HTTPException(status_code=403, detail="Только преподаватель может создавать задания")
@@ -205,11 +216,27 @@ def create_task(
         raise HTTPException(status_code=404, detail="Курс не найден")
 
     if not title.strip():
+        done_tasks = sum(1 for t in course.tasks if t.status == "done")
+        in_progress_tasks = sum(1 for t in course.tasks if t.status == "in_progress")
+        todo_tasks = sum(1 for t in course.tasks if t.status == "todo")
+
         return templates.TemplateResponse(
             request=request,
             name="course_detail.html",
-            context={"title": course.title, "course": course, "error": "Название задания обязательно",
-                     "role": "teacher"},
+            context={
+                "title": course.title,
+                "course": course,
+                "tasks": course.tasks,
+                "error": "Название задания обязательно",
+                "role": "teacher",
+                "current_filter": None,
+                "stats": {
+                    "total": len(course.tasks),
+                    "done": done_tasks,
+                    "in_progress": in_progress_tasks,
+                    "todo": todo_tasks,
+                }
+            },
             status_code=400,
         )
 
@@ -226,14 +253,12 @@ def create_task(
     return RedirectResponse(url=f"/courses/{course_id}", status_code=303)
 
 
-# --- МАРШРУТЫ ТОЛЬКО ДЛЯ СТУДЕНТА ---
-
 @app.post("/tasks/{task_id}/status")
 def update_task_status(
-        request: Request,
-        task_id: int,
-        status: str = Form(...),
-        db: Session = Depends(get_db),
+    request: Request,
+    task_id: int,
+    status: str = Form(...),
+    db: Session = Depends(get_db),
 ):
     if get_current_role(request) != "student":
         raise HTTPException(status_code=403, detail="Только студент может менять статус")
