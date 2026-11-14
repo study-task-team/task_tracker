@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
-<nav aria-label="breadcrumb">
-  <ol class="breadcrumb mt-2">
+<nav aria-label="breadcrumb" class="mt-2">
+  <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="/courses">Курсы</a></li>
     <li class="breadcrumb-item active">{{ course.title }}</li>
   </ol>
@@ -43,6 +43,42 @@
 <div class="alert alert-danger">{{ error }}</div>
 {% endif %}
 
+<!-- Блок статистики (US-6) -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-light border-0 text-center py-2">
+            <h5 class="mb-0">{{ stats.total }}</h5>
+            <small class="text-muted">Всего</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-secondary bg-opacity-10 border-0 text-center py-2">
+            <h5 class="mb-0 text-secondary">{{ stats.todo }}</h5>
+            <small class="text-muted">К выполнению</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning bg-opacity-10 border-0 text-center py-2">
+            <h5 class="mb-0 text-warning-emphasis">{{ stats.in_progress }}</h5>
+            <small class="text-muted">В работе</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success bg-opacity-10 border-0 text-center py-2">
+            <h5 class="mb-0 text-success">{{ stats.done }}</h5>
+            <small class="text-muted">Сдано</small>
+        </div>
+    </div>
+</div>
+
+<!-- Фильтры (US-14) -->
+<div class="mb-3">
+    <a href="/courses/{{ course.id }}" class="btn btn-sm {% if not current_filter %}btn-primary{% else %}btn-outline-primary{% endif %}">Все</a>
+    <a href="/courses/{{ course.id }}?status=todo" class="btn btn-sm {% if current_filter == 'todo' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">К выполнению</a>
+    <a href="/courses/{{ course.id }}?status=in_progress" class="btn btn-sm {% if current_filter == 'in_progress' %}btn-warning{% else %}btn-outline-warning{% endif %}">В работе</a>
+    <a href="/courses/{{ course.id }}?status=done" class="btn btn-sm {% if current_filter == 'done' %}btn-success{% else %}btn-outline-success{% endif %}">Сдано</a>
+</div>
+
 <!-- Форма добавления задания видна только преподавателю -->
 {% if role == 'teacher' %}
 <div class="card mb-4 bg-light">
@@ -65,15 +101,22 @@
 
 <div class="card">
     <ul class="list-group list-group-flush">
-        {% for task in course.tasks %}
+        {% for task in tasks %}
         <li class="list-group-item d-flex justify-content-between align-items-center">
             <div>
-                <h6 class="mb-1">{{ task.title }}</h6>
+                <div class="d-flex align-items-center">
+                <h6 class="mb-1 me-2">{{ task.title }}</h6>
+                {% if role == 'teacher' %}
+                <a href="/tasks/{{ task.id }}/edit" class="text-secondary small" title="Редактировать">
+                    <i class="bi bi-pencil-square"></i>
+                </a>
+                {% endif %}
+            </div>
                 <small class="text-muted">
                     {% if task.deadline %}До: {{ task.deadline.strftime("%d.%m.%Y %H:%M") }}{% else %}Без дедлайна{% endif %}
                 </small>
             </div>
-            
+
             <!-- Если вошел студент — показываем выпадающий список статусов -->
             {% if role == 'student' %}
             <form method="post" action="/tasks/{{ task.id }}/status">
@@ -84,7 +127,6 @@
                 </select>
             </form>
             {% else %}
-            <!-- Если препод — просто показываем текущий статус -->
             <span class="badge bg-secondary">{{ task.status }}</span>
             {% endif %}
         </li>

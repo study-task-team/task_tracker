@@ -145,3 +145,104 @@ def test_course_stats_calculation(client):
     assert "К выполнению" in response.text
     assert "В работе" in response.text
     assert "Сдано" in response.text
+def test_edit_task_page_teacher(client):
+    """Преподаватель может открыть страницу редактирования."""
+    client.post("/login", data={"role": "teacher"})
+    client.post("/courses", data={"title": "Химия"})
+    client.post("/courses/1/tasks", data={"title": "Старое задание"})
+    response = client.get("/tasks/1/edit")
+    assert response.status_code == 200
+    assert "Старое задание" in response.text
+
+
+def test_edit_task_teacher_saves(client):
+    """Преподаватель может изменить задание."""
+    client.post("/login", data={"role": "teacher"})
+    client.post("/courses", data={"title": "Биология"})
+    client.post("/courses/1/tasks", data={"title": "Старое"})
+
+    response = client.post(
+        "/tasks/1/edit",
+        data={"title": "Новое название", "deadline": ""},
+        follow_redirects=False
+    )
+    assert response.status_code == 303
+
+    response = client.get("/courses/1")
+    assert "Новое название" in response.text
+    assert "Старое" not in response.text
+
+
+def test_edit_task_403_for_student(client):
+    """Студент не может редактировать задание."""
+    client.post("/login", data={"role": "teacher"})
+    client.post("/courses", data={"title": "Физика"})
+    client.post("/courses/1/tasks", data={"title": "Задача"})
+    client.get("/logout")
+
+    client.post("/login", data={"role": "student"})
+    response = client.get("/tasks/1/edit")
+    assert response.status_code == 403
+
+
+def test_edit_task_empty_title_error(client):
+    """Пустое название при редактировании вызывает ошибку 400."""
+    client.post("/login", data={"role": "teacher"})
+    client.post("/courses", data={"title": "История"})
+    client.post("/courses/1/tasks", data={"title": "Старое"})
+
+    response = client.post(
+        "/tasks/1/edit",
+        data={"title": "   ", "deadline": ""}
+    )
+    assert response.status_code == 400
+    assert "Название обязательно" in response.text
+
+
+def test_edit_task_invalid_deadline(client):
+    """Некорректная дата при редактировании не ломает сервис."""
+    client.post("/login", data={"role": "teacher"})
+    client.post("/courses", data={"title": "География"})
+    client.post("/courses/1/tasks", data={"title": "Старое"})
+
+    response = client.post(
+        "/tasks/1/edit",
+        data={"title": "Новое", "deadline": "не-дата"},
+        follow_redirects=False
+    )
+    assert response.status_code == 303
+
+
+def test_edit_task_404(client):
+    """Редактирование несуществующего задания возвращает 404."""
+    client.post("/login", data={"role": "teacher"})
+    response = client.get("/tasks/999/edit")
+    assert response.status_code == 404
+
+
+def test_course_filtering(client):
+    """Проверка фильтрации задач по статусу."""
+    # Создаем курс и задачи от лица препода
+    client.post("/login", data={"role": "teacher"})
+    client.post("/courses", data={"title": "Фильтрация"})
+    client.post("/courses/1/tasks", data={"title": "Задача 1"})
+    client.post("/courses/1/tasks", data={"title": "Задача 2"})
+
+    # Студент ставит статус "done" для первой задачи
+    client.get("/logout")
+    client.post("/login", data={"role": "student"})
+    client.post("/tasks/1/status", data={"status": "done"})
+    client.get("/logout")
+
+    # Заходим как препод и проверяем фильтр
+    client.post("/login", data={"role": "teacher"})
+
+    # Без фильтра видны обе задачи
+    response_all = client.get("/courses/1")
+    assert "Задача 1" in response_all.text
+    assert "Задача 2" in response_all.text
+
+    # С фильтром done видна только первая
+    response_done = client.get("/courses/1?status=done")
+    assert "Задача 1" in response_done.text
+    assert "Задача 2" not in response_done.text

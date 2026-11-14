@@ -97,7 +97,12 @@ def list_courses(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/courses/{course_id}", response_class=HTMLResponse)
-def course_detail(request: Request, course_id: int, db: Session = Depends(get_db)):
+def course_detail(
+    request: Request,
+    course_id: int,
+    status: str = None,
+    db: Session = Depends(get_db)
+):
     role = get_current_role(request)
     if role == "guest":
         return RedirectResponse(url="/", status_code=303)
@@ -105,6 +110,11 @@ def course_detail(request: Request, course_id: int, db: Session = Depends(get_db
     course = db.query(Course).filter(Course.id == course_id).first()
     if not course:
         raise HTTPException(status_code=404, detail="Курс не найден")
+
+        # Фильтрация (US-14)
+    tasks = course.tasks
+    if status in ["todo", "in_progress", "done"]:
+        tasks = [t for t in tasks if t.status == status]
 
     # Считаем статистику (US-6)
     total_tasks = len(course.tasks)
@@ -120,6 +130,10 @@ def course_detail(request: Request, course_id: int, db: Session = Depends(get_db
             "course": course,
             "error": None,
             "role": role,
+            "tasks": tasks,
+            "error": None,
+            "role": role,
+            "current_filter": status,
             "stats": {
                 "total": total_tasks,
                 "done": done_tasks,
@@ -130,6 +144,60 @@ def course_detail(request: Request, course_id: int, db: Session = Depends(get_db
     )
 
 # --- МАРШРУТЫ ТОЛЬКО ДЛЯ ПРЕПОДАВАТЕЛЯ ---
+
+@app.get("/tasks/{task_id}/edit", response_class=HTMLResponse)
+def edit_task_page(request: Request, task_id: int, db: Session = Depends(get_db)):
+    """Страница редактирования задания (только для преподавателя)."""
+    if get_current_role(request) != "teacher":
+        raise HTTPException(status_code=403, detail="Только преподаватель может редактировать задания")
+
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Задание не найдено")
+
+    return templates.TemplateResponse(
+        request=request,
+        name="task_edit.html",
+        context={"title": "Редактирование", "task": task, "error": None},
+    )
+
+
+@app.post("/tasks/{task_id}/edit")
+def edit_task(
+        request: Request,
+        task_id: int,
+        title: str = Form(...),
+        deadline: str = Form(None),
+        db: Session = Depends(get_db),
+):
+    """Сохранение изменений в задании."""
+    if get_current_role(request) != "teacher":
+        raise HTTPException(status_code=403, detail="Только преподаватель может редактировать задания")
+
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Задание не найдено")
+
+    if not title.strip():
+        return templates.TemplateResponse(
+            request=request,
+            name="task_edit.html",
+            context={"title": "Редактирование", "task": task, "error": "Название обязательно"},
+            status_code=400,
+        )
+
+    parsed_deadline = None
+    if deadline:
+        try:
+            parsed_deadline = datetime.strptime(deadline, "%Y-%m-%dT%H:%M")
+        except ValueError:
+            pass
+
+    task.title = title.strip()
+    task.deadline = parsed_deadline
+    db.commit()
+
+    return RedirectResponse(url=f"/courses/{task.course_id}", status_code=303)
 
 @app.post("/courses")
 def create_course(request: Request, title: str = Form(...), db: Session = Depends(get_db)):
@@ -180,6 +248,10 @@ def create_task(
                 "course": course,
                 "error": "Название задания обязательно",
                 "role": "teacher",
+                "tasks": course.tasks,
+                "error": "Название задания обязательно",
+                "role": "teacher",
+                "current_filter": None,
                 "stats": {
                     "total": len(course.tasks),
                     "done": done_tasks,
