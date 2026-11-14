@@ -80,7 +80,7 @@ def logout(request: Request):
     return RedirectResponse(url="/", status_code=303)
 
 
-# --- МАРШРУТЫ ДЛЯ КУРСОВ (ДОСТУПНЫ ОБЕИМ РОЛЯМ) ---
+# --- МАРШРУТЫ ДЛЯ КУРСОВ ---
 
 @app.get("/courses", response_class=HTMLResponse)
 def list_courses(request: Request, db: Session = Depends(get_db)):
@@ -111,7 +111,11 @@ def course_detail(
     if not course:
         raise HTTPException(status_code=404, detail="Курс не найден")
 
+<<<<<<< HEAD
         # Фильтрация (US-14)
+=======
+    # Фильтрация (US-14)
+>>>>>>> 3066a7c (fix main.py)
     tasks = course.tasks
     if status in ["todo", "in_progress", "done"]:
         tasks = [t for t in tasks if t.status == status]
@@ -128,11 +132,15 @@ def course_detail(
         context={
             "title": course.title,
             "course": course,
-            "error": None,
-            "role": role,
             "tasks": tasks,
             "error": None,
             "role": role,
+<<<<<<< HEAD
+            "tasks": tasks,
+            "error": None,
+            "role": role,
+=======
+>>>>>>> 3066a7c (fix main.py)
             "current_filter": status,
             "stats": {
                 "total": total_tasks,
@@ -142,6 +150,7 @@ def course_detail(
             }
         },
     )
+
 
 # --- МАРШРУТЫ ТОЛЬКО ДЛЯ ПРЕПОДАВАТЕЛЯ ---
 
@@ -235,7 +244,6 @@ def create_task(
         raise HTTPException(status_code=404, detail="Курс не найден")
 
     if not title.strip():
-        # Считаем статистику (US-6)
         done_tasks = sum(1 for t in course.tasks if t.status == "done")
         in_progress_tasks = sum(1 for t in course.tasks if t.status == "in_progress")
         todo_tasks = sum(1 for t in course.tasks if t.status == "todo")
@@ -246,11 +254,15 @@ def create_task(
             context={
                 "title": course.title,
                 "course": course,
-                "error": "Название задания обязательно",
-                "role": "teacher",
                 "tasks": course.tasks,
                 "error": "Название задания обязательно",
                 "role": "teacher",
+<<<<<<< HEAD
+                "tasks": course.tasks,
+                "error": "Название задания обязательно",
+                "role": "teacher",
+=======
+>>>>>>> 3066a7c (fix main.py)
                 "current_filter": None,
                 "stats": {
                     "total": len(course.tasks),
