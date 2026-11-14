@@ -119,6 +119,32 @@ def test_update_task_status_invalid(client):
     assert response.status_code == 400
 
 
+def test_course_stats_calculation(client):
+    """Проверка, что статистика по статусам считается правильно."""
+    client.post("/login", data={"role": "teacher"})
+    client.post("/courses", data={"title": "Статистика"})
+
+    # Создаем 3 задания
+    client.post("/courses/1/tasks", data={"title": "Задача 1"})
+    client.post("/courses/1/tasks", data={"title": "Задача 2"})
+    client.post("/courses/1/tasks", data={"title": "Задача 3"})
+
+    # Меняем статусы от лица студента
+    client.get("/logout")
+    client.post("/login", data={"role": "student"})
+    client.post("/tasks/1/status", data={"status": "done"})
+    client.post("/tasks/2/status", data={"status": "in_progress"})
+    client.get("/logout")
+
+    # Заходим как препод и смотрим статистику
+    client.post("/login", data={"role": "teacher"})
+    response = client.get("/courses/1")
+
+    assert response.status_code == 200
+    assert "Всего" in response.text
+    assert "К выполнению" in response.text
+    assert "В работе" in response.text
+    assert "Сдано" in response.text
 def test_edit_task_page_teacher(client):
     """Преподаватель может открыть страницу редактирования."""
     client.post("/login", data={"role": "teacher"})

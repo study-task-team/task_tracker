@@ -9,6 +9,36 @@
 
 <h2 class="mb-4">{{ course.title }}</h2>
 
+<h2 class="mb-4">{{ course.title }}</h2>
+
+<!-- Блок статистики (US-6) -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-light border-0 text-center py-2">
+            <h5 class="mb-0">{{ stats.total }}</h5>
+            <small class="text-muted">Всего</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-secondary bg-opacity-10 border-0 text-center py-2">
+            <h5 class="mb-0 text-secondary">{{ stats.todo }}</h5>
+            <small class="text-muted">К выполнению</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning bg-opacity-10 border-0 text-center py-2">
+            <h5 class="mb-0 text-warning-emphasis">{{ stats.in_progress }}</h5>
+            <small class="text-muted">В работе</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success bg-opacity-10 border-0 text-center py-2">
+            <h5 class="mb-0 text-success">{{ stats.done }}</h5>
+            <small class="text-muted">Сдано</small>
+        </div>
+    </div>
+</div>
+
 {% if error %}
 <div class="alert alert-danger">{{ error }}</div>
 {% endif %}
